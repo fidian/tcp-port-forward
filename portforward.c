@@ -14,6 +14,11 @@
 #define DIE(msg) perror(msg); exit(1);
 
 
+/**
+ * Send the traffic from src socket to dst socket
+ *
+ * When done or on any error, this dies and will kill the forked process.
+ */
 void com(int src, int dst) {
     char buf[1024 * 4];
     int r, i, j;
@@ -47,6 +52,12 @@ void com(int src, int dst) {
     exit(0);
 }
 
+
+/**
+ * Opens a connection to the destination.
+ *
+ * On any error, this dies and will kill the forked process.
+ */
 int open_forwarding_socket(char *forward_name, int forward_port) {
     int forward_socket;
     struct hostent *forward;
@@ -76,7 +87,12 @@ int open_forwarding_socket(char *forward_name, int forward_port) {
     return forward_socket;
 }
 
-void connect_to_forward(int client_socket, char *forward_name, int forward_port) {
+
+/**
+ * Forwards all traffic from the client's socket to the destination
+ * host/port.  This also initiates the connection to the destination.
+ */
+void forward_traffic(int client_socket, char *forward_name, int forward_port) {
     int forward_socket;
     pid_t down_pid;
 
@@ -97,6 +113,10 @@ void connect_to_forward(int client_socket, char *forward_name, int forward_port)
     }
 }
 
+
+/**
+ * Opens the listening port or dies trying.
+ */
 int open_listening_port(int server_port) {
     struct sockaddr_in server_address;
     int server_socket;
@@ -123,6 +143,11 @@ int open_listening_port(int server_port) {
     return server_socket;
 }
 
+
+/**
+ * Handles a single connection.  Will fork in order to handle another
+ * connection while the child starts to forward traffic.
+ */
 void accept_connection(int server_socket, char *forward_name, int forward_port) {
     int client_socket;
     pid_t up_pid;
@@ -141,13 +166,17 @@ void accept_connection(int server_socket, char *forward_name, int forward_port) 
     }
 
     if (up_pid == 0) {
-        connect_to_forward(client_socket, forward_name, forward_port);
+        forward_traffic(client_socket, forward_name, forward_port);
         exit(1);
     }
 
     close(client_socket);
 }
 
+
+/**
+ * Argument parsing and validation
+ */
 void parse_arguments(int argc, char **argv, int *server_port, char **forward_name, int *forward_port) {
     if (argc < 3) {
         fprintf(stderr, "Not enough arguments\n");
@@ -176,6 +205,10 @@ void parse_arguments(int argc, char **argv, int *server_port, char **forward_nam
     }
 }
 
+
+/**
+ * Coordinates the effort
+ */
 int main(int argc, char **argv) {
     int server_port, forward_port, server_socket;
     char *forward_name;
